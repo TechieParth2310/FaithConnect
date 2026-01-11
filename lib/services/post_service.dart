@@ -341,6 +341,10 @@ class PostService {
     required String text,
   }) async {
     try {
+      // Get post details for notification
+      final postDoc = await _firestore.collection('posts').doc(postId).get();
+      final post = PostModel.fromFirestore(postDoc);
+
       final commentId = _firestore.collection('posts').doc().id;
       final comment = CommentModel(
         id: commentId,
@@ -352,6 +356,164 @@ class PostService {
 
       await _firestore.collection('posts').doc(postId).update({
         'comments': FieldValue.arrayUnion([comment.toMap()]),
+      });
+
+      // Send notification to post author (if not commenting on own post)
+      if (post.leaderId != userId) {
+        final user = await _authService.getUserById(userId);
+        if (user != null) {
+          await _notificationService.notifyOnComment(
+            postOwnerId: post.leaderId,
+            userId: userId,
+            userName: user.name,
+            postId: postId,
+            comment: text,
+            userProfileUrl: user.profilePhotoUrl,
+          );
+        }
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Add comment with reply support
+  Future<void> addCommentWithReply({
+    required String postId,
+    required String userId,
+    required String userName,
+    required String text,
+    String? replyToId,
+    String? replyToUserName,
+  }) async {
+    try {
+      // Get post details for notification
+      final postDoc = await _firestore.collection('posts').doc(postId).get();
+      final post = PostModel.fromFirestore(postDoc);
+
+      final commentId = _firestore.collection('posts').doc().id;
+      final comment = CommentModel(
+        id: commentId,
+        userId: userId,
+        userName: userName,
+        text: text,
+        createdAt: DateTime.now(),
+        replyToId: replyToId,
+        replyToUserName: replyToUserName,
+      );
+
+      await _firestore.collection('posts').doc(postId).update({
+        'comments': FieldValue.arrayUnion([comment.toMap()]),
+      });
+
+      // Send notification to post author (if not commenting on own post)
+      if (post.leaderId != userId) {
+        final user = await _authService.getUserById(userId);
+        if (user != null) {
+          await _notificationService.notifyOnComment(
+            postOwnerId: post.leaderId,
+            userId: userId,
+            userName: user.name,
+            postId: postId,
+            comment: text,
+            userProfileUrl: user.profilePhotoUrl,
+          );
+        }
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Edit comment
+  Future<void> editComment({
+    required String postId,
+    required String commentId,
+    required String newText,
+    required List<CommentModel> currentComments,
+  }) async {
+    try {
+      // Find and update the comment
+      final updatedComments = currentComments.map((comment) {
+        if (comment.id == commentId) {
+          return comment.copyWith(text: newText, isEdited: true);
+        }
+        return comment;
+      }).toList();
+
+      await _firestore.collection('posts').doc(postId).update({
+        'comments': updatedComments.map((c) => c.toMap()).toList(),
+      });
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Delete comment
+  Future<void> deleteComment({
+    required String postId,
+    required String commentId,
+    required List<CommentModel> currentComments,
+  }) async {
+    try {
+      final updatedComments = currentComments
+          .where((comment) => comment.id != commentId)
+          .toList();
+
+      await _firestore.collection('posts').doc(postId).update({
+        'comments': updatedComments.map((c) => c.toMap()).toList(),
+      });
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Like a comment
+  Future<void> likeComment({
+    required String postId,
+    required String commentId,
+    required String userId,
+    required List<CommentModel> currentComments,
+  }) async {
+    try {
+      final updatedComments = currentComments.map((comment) {
+        if (comment.id == commentId) {
+          final newLikedBy = List<String>.from(comment.likedBy);
+          if (!newLikedBy.contains(userId)) {
+            newLikedBy.add(userId);
+          }
+          return comment.copyWith(likedBy: newLikedBy);
+        }
+        return comment;
+      }).toList();
+
+      await _firestore.collection('posts').doc(postId).update({
+        'comments': updatedComments.map((c) => c.toMap()).toList(),
+      });
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Unlike a comment
+  Future<void> unlikeComment({
+    required String postId,
+    required String commentId,
+    required String userId,
+    required List<CommentModel> currentComments,
+  }) async {
+    try {
+      final updatedComments = currentComments.map((comment) {
+        if (comment.id == commentId) {
+          final newLikedBy = List<String>.from(comment.likedBy);
+          newLikedBy.remove(userId);
+          return comment.copyWith(likedBy: newLikedBy);
+        }
+        return comment;
+      }).toList();
+
+      await _firestore.collection('posts').doc(postId).update({
+        'comments': updatedComments.map((c) => c.toMap()).toList(),
       });
     } catch (e) {
       rethrow;

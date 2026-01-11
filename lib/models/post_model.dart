@@ -117,6 +117,10 @@ class CommentModel {
   final String userName;
   final String text;
   final DateTime createdAt;
+  final String? replyToId;
+  final String? replyToUserName;
+  final bool isEdited;
+  final List<String> likedBy;
 
   CommentModel({
     required this.id,
@@ -124,7 +128,37 @@ class CommentModel {
     required this.userName,
     required this.text,
     required this.createdAt,
+    this.replyToId,
+    this.replyToUserName,
+    this.isEdited = false,
+    this.likedBy = const [],
   });
+
+  int get likeCount => likedBy.length;
+
+  CommentModel copyWith({
+    String? id,
+    String? userId,
+    String? userName,
+    String? text,
+    DateTime? createdAt,
+    String? replyToId,
+    String? replyToUserName,
+    bool? isEdited,
+    List<String>? likedBy,
+  }) {
+    return CommentModel(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      userName: userName ?? this.userName,
+      text: text ?? this.text,
+      createdAt: createdAt ?? this.createdAt,
+      replyToId: replyToId ?? this.replyToId,
+      replyToUserName: replyToUserName ?? this.replyToUserName,
+      isEdited: isEdited ?? this.isEdited,
+      likedBy: likedBy ?? this.likedBy,
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -133,6 +167,10 @@ class CommentModel {
       'userName': userName,
       'text': text,
       'createdAt': createdAt,
+      'replyToId': replyToId,
+      'replyToUserName': replyToUserName,
+      'isEdited': isEdited,
+      'likedBy': likedBy,
     };
   }
 
@@ -145,6 +183,10 @@ class CommentModel {
       createdAt: map['createdAt'] is Timestamp
           ? (map['createdAt'] as Timestamp).toDate()
           : DateTime.parse(map['createdAt'] ?? DateTime.now().toString()),
+      replyToId: map['replyToId'],
+      replyToUserName: map['replyToUserName'],
+      isEdited: map['isEdited'] ?? false,
+      likedBy: List<String>.from(map['likedBy'] ?? []),
     );
   }
 }

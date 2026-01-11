@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#6366F1</color>
+    <!-- FaithConnect Brand Colors for Splash -->
+    <color name="splash_background">#6366F1</color>
+    <color name="brand_purple">#6366F1</color>
+    <!-- Notification color -->
+    <color name="notification_color">#6366F1</color>
 </resources>

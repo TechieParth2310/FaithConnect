@@ -2,11 +2,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/reel_model.dart';
+import 'notification_service.dart';
+import 'auth_service.dart';
 
 class ReelService {
   static final ReelService _instance = ReelService._internal();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
+  final NotificationService _notificationService = NotificationService();
+  final AuthService _authService = AuthService();
 
   factory ReelService() {
     return _instance;
@@ -137,10 +141,27 @@ class ReelService {
   // Like a reel
   Future<void> likeReel(String reelId, String userId) async {
     try {
+      // Get reel details for notification
+      final reel = await getReel(reelId);
+
       await _firestore.collection('reels').doc(reelId).update({
         'likes': FieldValue.arrayUnion([userId]),
         'likeCount': FieldValue.increment(1),
       });
+
+      // Send notification to reel author (if not liking own reel)
+      if (reel != null && reel.authorId != userId) {
+        final user = await _authService.getUserById(userId);
+        if (user != null) {
+          await _notificationService.notifyOnReelLike(
+            reelOwnerId: reel.authorId,
+            userId: userId,
+            userName: user.name,
+            reelId: reelId,
+            userProfileUrl: user.profilePhotoUrl,
+          );
+        }
+      }
     } catch (e) {
       rethrow;
     }
@@ -199,6 +220,154 @@ class ReelService {
       await _firestore.collection('reels').doc(reelId).update({
         'commentCount': FieldValue.increment(1),
       });
+
+      // Send notification to reel author (if not commenting on own reel)
+      final reel = await getReel(reelId);
+      if (reel != null && reel.authorId != userId) {
+        final user = await _authService.getUserById(userId);
+        if (user != null) {
+          await _notificationService.notifyOnReelComment(
+            reelOwnerId: reel.authorId,
+            userId: userId,
+            userName: user.name,
+            reelId: reelId,
+            comment: text,
+            userProfileUrl: user.profilePhotoUrl,
+          );
+        }
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Add comment with reply support
+  Future<void> addCommentWithReply({
+    required String reelId,
+    required String userId,
+    required String userName,
+    required String text,
+    String? replyToId,
+    String? replyToUserName,
+  }) async {
+    try {
+      final commentRef = _firestore
+          .collection('reels')
+          .doc(reelId)
+          .collection('comments')
+          .doc();
+
+      await commentRef.set({
+        'id': commentRef.id,
+        'userId': userId,
+        'userName': userName,
+        'text': text,
+        'createdAt': DateTime.now(),
+        'replyToId': replyToId,
+        'replyToUserName': replyToUserName,
+        'isEdited': false,
+      });
+
+      // Increment comment count
+      await _firestore.collection('reels').doc(reelId).update({
+        'commentCount': FieldValue.increment(1),
+      });
+
+      // Send notification to reel author (if not commenting on own reel)
+      final reel = await getReel(reelId);
+      if (reel != null && reel.authorId != userId) {
+        final user = await _authService.getUserById(userId);
+        if (user != null) {
+          await _notificationService.notifyOnReelComment(
+            reelOwnerId: reel.authorId,
+            userId: userId,
+            userName: user.name,
+            reelId: reelId,
+            comment: text,
+            userProfileUrl: user.profilePhotoUrl,
+          );
+        }
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Edit comment on reel
+  Future<void> editComment({
+    required String reelId,
+    required String commentId,
+    required String newText,
+  }) async {
+    try {
+      await _firestore
+          .collection('reels')
+          .doc(reelId)
+          .collection('comments')
+          .doc(commentId)
+          .update({'text': newText, 'isEdited': true});
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Delete comment on reel
+  Future<void> deleteComment({
+    required String reelId,
+    required String commentId,
+  }) async {
+    try {
+      await _firestore
+          .collection('reels')
+          .doc(reelId)
+          .collection('comments')
+          .doc(commentId)
+          .delete();
+
+      // Decrement comment count
+      await _firestore.collection('reels').doc(reelId).update({
+        'commentCount': FieldValue.increment(-1),
+      });
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Like a comment on reel
+  Future<void> likeComment({
+    required String reelId,
+    required String commentId,
+    required String userId,
+  }) async {
+    try {
+      await _firestore
+          .collection('reels')
+          .doc(reelId)
+          .collection('comments')
+          .doc(commentId)
+          .update({
+            'likedBy': FieldValue.arrayUnion([userId]),
+          });
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Unlike a comment on reel
+  Future<void> unlikeComment({
+    required String reelId,
+    required String commentId,
+    required String userId,
+  }) async {
+    try {
+      await _firestore
+          .collection('reels')
+          .doc(reelId)
+          .collection('comments')
+          .doc(commentId)
+          .update({
+            'likedBy': FieldValue.arrayRemove([userId]),
+          });
     } catch (e) {
       rethrow;
     }

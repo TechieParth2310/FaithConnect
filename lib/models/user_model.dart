@@ -18,6 +18,7 @@ class UserModel {
   final DateTime updatedAt;
   final DateTime? lastSeen;
   final bool isOnline;
+  final List<String> fcmTokens; // FCM tokens for push notifications
 
   UserModel({
     required this.id,
@@ -33,6 +34,7 @@ class UserModel {
     required this.updatedAt,
     this.lastSeen,
     this.isOnline = false,
+    this.fcmTokens = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -50,6 +52,7 @@ class UserModel {
       'updatedAt': updatedAt,
       'lastSeen': lastSeen,
       'isOnline': isOnline,
+      'fcmTokens': fcmTokens,
     };
   }
 
@@ -78,6 +81,7 @@ class UserModel {
                 : DateTime.parse(map['lastSeen']))
           : null,
       isOnline: map['isOnline'] ?? false,
+      fcmTokens: List<String>.from(map['fcmTokens'] ?? []),
     );
   }
 
@@ -99,6 +103,7 @@ class UserModel {
     DateTime? updatedAt,
     DateTime? lastSeen,
     bool? isOnline,
+    List<String>? fcmTokens,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -114,6 +119,7 @@ class UserModel {
       updatedAt: updatedAt ?? this.updatedAt,
       lastSeen: lastSeen ?? this.lastSeen,
       isOnline: isOnline ?? this.isOnline,
+      fcmTokens: fcmTokens ?? this.fcmTokens,
     );
   }
 

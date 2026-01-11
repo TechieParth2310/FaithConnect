@@ -271,11 +271,10 @@ class _LeadersScreenState extends State<LeadersScreen>
                   crossAxisCount: MediaQuery.of(context).size.width < 360
                       ? 1
                       : 2,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
-                  // Slightly taller to guarantee no overflow with long bio
-                  // and the fixed 48dp CTA on small screens.
-                  childAspectRatio: 0.78,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  // Adjusted for smaller button and better proportions
+                  childAspectRatio: 0.82,
                 ),
                 itemCount: leaders.length,
                 itemBuilder: (context, index) {
@@ -556,20 +555,20 @@ class _LeaderCardState extends State<LeaderCard> {
           side: const BorderSide(color: Color(0xFFE5E7EB)),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               _LeaderAvatar(profilePhotoUrl: widget.leader.profilePhotoUrl),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text(
                 widget.leader.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
                   color: Color(0xFF111827),
                 ),
               ),
@@ -583,22 +582,23 @@ class _LeaderCardState extends State<LeaderCard> {
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     color: Color(0xFF6B7280),
-                    height: 1.2,
+                    height: 1.3,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
-                height: 48,
+                height: 36,
                 child: FollowButton(
                   worshipperId: widget.currentUserId,
                   leaderId: widget.leader.id,
-                  height: 48,
-                  borderRadius: const BorderRadius.all(Radius.circular(14)),
+                  height: 36,
+                  compact: true,
+                  borderRadius: const BorderRadius.all(Radius.circular(10)),
                 ),
               ),
             ],

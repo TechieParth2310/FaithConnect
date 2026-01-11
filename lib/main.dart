@@ -2,20 +2,47 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:app_links/app_links.dart';
 import 'dart:async';
 import 'firebase_options.dart';
-import 'screens/auth_wrapper.dart';
+import 'screens/splash_screen.dart';
 import 'services/auth_service.dart';
+import 'services/push_notification_service.dart';
+
+// Background message handler - must be a top-level function
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  print('🔔 Background message: ${message.notification?.title}');
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
+  // Set up background message handler for FCM
+  if (!kIsWeb) {
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  }
+
   // Set persistence to LOCAL for web to maintain login across refreshes
   // Note: setPersistence is only supported on web, not on mobile
   if (kIsWeb) {
     await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+  }
+
+  // Initialize push notifications and save FCM token for existing user
+  if (!kIsWeb) {
+    final pushService = PushNotificationService();
+    await pushService.initialize();
+
+    // If user is already logged in, save their FCM token
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser != null) {
+      await pushService.saveTokenToUser(currentUser.uid);
+      print('📱 FCM token saved for existing user: ${currentUser.uid}');
+    }
   }
 
   runApp(const MyApp());
@@ -159,12 +186,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6366F1),
+          seedColor: const Color(0xFF6C63FF),
           brightness: Brightness.light,
         ),
         fontFamily: 'Roboto',
       ),
-      home: const AuthWrapper(),
+      home: const SplashScreen(),
     );
   }
 }

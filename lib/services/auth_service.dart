@@ -1,11 +1,14 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../models/index.dart';
+import 'push_notification_service.dart';
 
 class AuthService {
   static final AuthService _instance = AuthService._internal();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final PushNotificationService _pushService = PushNotificationService();
 
   factory AuthService() {
     return _instance;
@@ -51,6 +54,11 @@ class AuthService {
 
       await _firestore.collection('users').doc(user.uid).set(userModel.toMap());
 
+      // Save FCM token for push notifications
+      if (!kIsWeb) {
+        await _pushService.saveTokenToUser(user.uid);
+      }
+
       return userModel;
     } on FirebaseAuthException {
       rethrow;
@@ -70,6 +78,10 @@ class AuthService {
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
 
       if (userDoc.exists) {
+        // Save FCM token for push notifications
+        if (!kIsWeb) {
+          await _pushService.saveTokenToUser(user.uid);
+        }
         return UserModel.fromMap(userDoc.data() as Map<String, dynamic>);
       }
 
@@ -163,6 +175,11 @@ class AuthService {
   // Sign Out
   Future<void> signOut() async {
     try {
+      // Remove FCM token before signing out
+      final userId = _auth.currentUser?.uid;
+      if (userId != null && !kIsWeb) {
+        await _pushService.removeTokenFromUser(userId);
+      }
       await _auth.signOut();
     } catch (e) {
       rethrow;

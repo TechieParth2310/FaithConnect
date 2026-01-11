@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/index.dart';
+import 'push_notification_service.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final PushNotificationService _pushService = PushNotificationService();
 
   factory NotificationService() {
     return _instance;
@@ -76,9 +78,39 @@ class NotificationService {
           .doc(notificationId)
           .set(notification.toMap(), SetOptions(merge: true));
       print('✅ Notification saved successfully to Firestore');
+
+      // Send push notification to the user's device
+      await _pushService.sendPushNotification(
+        userId: userId,
+        title: title,
+        body: message ?? _getDefaultBody(type),
+        type: type.toString().split('.').last,
+        postId: postId,
+        chatId: chatId,
+        imageUrl: actorProfileUrl,
+      );
+      print('📤 Push notification request sent');
     } catch (e) {
       print('❌ Error creating notification: $e');
       rethrow; // Rethrow to see the actual error
+    }
+  }
+
+  // Get default body text based on notification type
+  String _getDefaultBody(NotificationType type) {
+    switch (type) {
+      case NotificationType.like:
+        return 'liked your content';
+      case NotificationType.comment:
+        return 'commented on your content';
+      case NotificationType.newFollower:
+        return 'started following you';
+      case NotificationType.newMessage:
+        return 'sent you a message';
+      case NotificationType.newPost:
+        return 'posted new content';
+      case NotificationType.newReel:
+        return 'posted a new reel';
     }
   }
 
@@ -307,6 +339,54 @@ class NotificationService {
       );
     } catch (e) {
       // Silent fail for follower notifications
+    }
+  }
+
+  // Notify on reel like
+  Future<void> notifyOnReelLike({
+    required String reelOwnerId,
+    required String userId,
+    required String userName,
+    required String reelId,
+    required String? userProfileUrl,
+  }) async {
+    try {
+      await createNotification(
+        userId: reelOwnerId,
+        actorId: userId,
+        actorName: userName,
+        type: NotificationType.like,
+        title: '$userName liked your reel',
+        postId: reelId, // Using postId field for reelId
+        actorProfileUrl: userProfileUrl,
+      );
+    } catch (e) {
+      // Silent fail for reel like notifications
+    }
+  }
+
+  // Notify on reel comment
+  Future<void> notifyOnReelComment({
+    required String reelOwnerId,
+    required String userId,
+    required String userName,
+    required String reelId,
+    required String comment,
+    required String? userProfileUrl,
+  }) async {
+    try {
+      await createNotification(
+        userId: reelOwnerId,
+        actorId: userId,
+        actorName: userName,
+        type: NotificationType.comment,
+        title: '$userName commented on your reel',
+        message: comment,
+        postId: reelId, // Using postId field for reelId
+        actorProfileUrl: userProfileUrl,
+      );
+    } catch (e) {
+      // Silent fail for reel comment notifications
     }
   }
 }

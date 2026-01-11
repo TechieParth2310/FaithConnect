@@ -835,6 +835,8 @@ class ReelCommentsSheet extends StatefulWidget {
 class _ReelCommentsSheetState extends State<ReelCommentsSheet> {
   final TextEditingController _commentController = TextEditingController();
   bool _isSending = false;
+  Map<String, dynamic>? _replyingTo;
+  Map<String, dynamic>? _editingComment;
 
   @override
   void dispose() {
@@ -851,13 +853,40 @@ class _ReelCommentsSheetState extends State<ReelCommentsSheet> {
     try {
       final user = await widget.authService.getUserById(widget.userId);
       if (user != null) {
-        await widget.reelService.addComment(
-          reelId: widget.reel.id,
-          userId: widget.userId,
-          userName: user.name,
-          text: text,
-        );
-        _commentController.clear();
+        if (_editingComment != null) {
+          // Edit existing comment
+          await widget.reelService.editComment(
+            reelId: widget.reel.id,
+            commentId: _editingComment!['id'],
+            newText: text,
+          );
+          setState(() {
+            _editingComment = null;
+            _commentController.clear();
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Comment updated!'),
+                duration: Duration(seconds: 1),
+              ),
+            );
+          }
+        } else {
+          // Add new comment (with or without reply)
+          await widget.reelService.addCommentWithReply(
+            reelId: widget.reel.id,
+            userId: widget.userId,
+            userName: user.name,
+            text: text,
+            replyToId: _replyingTo?['id'],
+            replyToUserName: _replyingTo?['userName'],
+          );
+          setState(() {
+            _replyingTo = null;
+            _commentController.clear();
+          });
+        }
         FocusScope.of(context).unfocus();
       }
     } catch (e) {
@@ -869,6 +898,149 @@ class _ReelCommentsSheetState extends State<ReelCommentsSheet> {
     } finally {
       if (mounted) {
         setState(() => _isSending = false);
+      }
+    }
+  }
+
+  void _showCommentActions(BuildContext context, Map<String, dynamic> comment) {
+    final isOwn = comment['userId'] == widget.userId;
+    final isReelOwner = widget.reel.authorId == widget.userId;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Reply option
+              ListTile(
+                leading: const Icon(Icons.reply, color: Color(0xFF6366F1)),
+                title: const Text('Reply'),
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() {
+                    _replyingTo = comment;
+                    _editingComment = null;
+                    _commentController.clear();
+                  });
+                },
+              ),
+              // Edit option (only for own comments)
+              if (isOwn)
+                ListTile(
+                  leading: const Icon(Icons.edit, color: Colors.orange),
+                  title: const Text('Edit'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() {
+                      _editingComment = comment;
+                      _replyingTo = null;
+                      _commentController.text = comment['text'] ?? '';
+                    });
+                  },
+                ),
+              // Delete option (for own comments or reel owner)
+              if (isOwn || isReelOwner)
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: const Text(
+                    'Delete',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _confirmDeleteComment(comment);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteComment(Map<String, dynamic> comment) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Comment'),
+        content: const Text('Are you sure you want to delete this comment?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await widget.reelService.deleteComment(
+          reelId: widget.reel.id,
+          commentId: comment['id'],
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Comment deleted'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error deleting comment: $e')));
+        }
+      }
+    }
+  }
+
+  Future<void> _toggleCommentLike(Map<String, dynamic> comment) async {
+    final likedBy = List<String>.from(comment['likedBy'] ?? []);
+    final isLiked = likedBy.contains(widget.userId);
+
+    try {
+      if (isLiked) {
+        await widget.reelService.unlikeComment(
+          reelId: widget.reel.id,
+          commentId: comment['id'],
+          userId: widget.userId,
+        );
+      } else {
+        await widget.reelService.likeComment(
+          reelId: widget.reel.id,
+          commentId: comment['id'],
+          userId: widget.userId,
+        );
+      }
+      // The StreamBuilder will automatically update the UI
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -996,51 +1168,202 @@ class _ReelCommentsSheetState extends State<ReelCommentsSheet> {
                     itemCount: comments.length,
                     itemBuilder: (context, index) {
                       final comment = comments[index];
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            CircleAvatar(
-                              radius: 18,
-                              backgroundColor: const Color(0xFF6366F1),
-                              child: Text(
-                                (comment['userName'] ?? 'U')[0].toUpperCase(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
+                      final isOwn = comment['userId'] == widget.userId;
+
+                      return GestureDetector(
+                        onLongPress: () =>
+                            _showCommentActions(context, comment),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              CircleAvatar(
+                                radius: 16,
+                                backgroundColor: const Color(0xFF6366F1),
+                                child: Text(
+                                  (comment['userName'] ?? 'U')[0].toUpperCase(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    comment['userName'] ?? 'Anonymous',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Reply indicator
+                                    if (comment['replyToUserName'] != null)
+                                      Container(
+                                        margin: const EdgeInsets.only(
+                                          bottom: 4,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey[100],
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.reply,
+                                              size: 12,
+                                              color: Colors.grey[600],
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              'Replying to @${comment['replyToUserName']}',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey[600],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    // Comment bubble
+                                    Container(
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: isOwn
+                                            ? const Color(
+                                                0xFF6366F1,
+                                              ).withOpacity(0.1)
+                                            : Colors.grey[100],
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Text(
+                                                comment['userName'] ??
+                                                    'Anonymous',
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                              if (comment['isEdited'] ==
+                                                  true) ...[
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  '(edited)',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: Colors.grey[500],
+                                                    fontStyle: FontStyle.italic,
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            comment['text'] ?? '',
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    comment['text'] ?? '',
-                                    style: const TextStyle(fontSize: 14),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _formatCommentTime(comment['createdAt']),
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
+                                    // Bottom row: time + reply button + like button
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        top: 4,
+                                        left: 4,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            _formatCommentTime(
+                                              comment['createdAt'],
+                                            ),
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey[500],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          GestureDetector(
+                                            onTap: () {
+                                              setState(() {
+                                                _replyingTo = comment;
+                                                _editingComment = null;
+                                              });
+                                            },
+                                            child: Text(
+                                              'Reply',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey[600],
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          // Like button
+                                          GestureDetector(
+                                            onTap: () =>
+                                                _toggleCommentLike(comment),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  (comment['likedBy'] as List?)
+                                                              ?.contains(
+                                                                widget.userId,
+                                                              ) ==
+                                                          true
+                                                      ? Icons.favorite
+                                                      : Icons.favorite_border,
+                                                  size: 14,
+                                                  color:
+                                                      (comment['likedBy']
+                                                                  as List?)
+                                                              ?.contains(
+                                                                widget.userId,
+                                                              ) ==
+                                                          true
+                                                      ? Colors.red
+                                                      : Colors.grey[500],
+                                                ),
+                                                if ((comment['likedBy']
+                                                            as List?)
+                                                        ?.isNotEmpty ==
+                                                    true) ...[
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    '${(comment['likedBy'] as List).length}',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: Colors.grey[600],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       );
                     },
@@ -1048,6 +1371,50 @@ class _ReelCommentsSheetState extends State<ReelCommentsSheet> {
                 },
               ),
             ),
+            // Reply/Edit indicator
+            if (_replyingTo != null || _editingComment != null)
+              Container(
+                color: Colors.grey[100],
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _editingComment != null ? Icons.edit : Icons.reply,
+                      size: 16,
+                      color: const Color(0xFF6366F1),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _editingComment != null
+                            ? 'Editing comment'
+                            : 'Replying to @${_replyingTo!['userName']}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF6366F1),
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _replyingTo = null;
+                          _editingComment = null;
+                          _commentController.clear();
+                        });
+                      },
+                      child: const Icon(
+                        Icons.close,
+                        size: 18,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             // Comment input
             Container(
               decoration: BoxDecoration(
@@ -1074,7 +1441,11 @@ class _ReelCommentsSheetState extends State<ReelCommentsSheet> {
                         controller: _commentController,
                         enabled: !_isSending,
                         decoration: InputDecoration(
-                          hintText: 'Add a comment...',
+                          hintText: _editingComment != null
+                              ? 'Edit your comment...'
+                              : _replyingTo != null
+                              ? 'Reply to @${_replyingTo!['userName']}...'
+                              : 'Add a comment...',
                           hintStyle: TextStyle(color: Colors.grey[500]),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(25),
@@ -1121,8 +1492,10 @@ class _ReelCommentsSheetState extends State<ReelCommentsSheet> {
                               ),
                             )
                           : IconButton(
-                              icon: const Icon(
-                                Icons.send,
+                              icon: Icon(
+                                _editingComment != null
+                                    ? Icons.check
+                                    : Icons.send,
                                 color: Colors.white,
                                 size: 20,
                               ),
