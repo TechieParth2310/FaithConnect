@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- FaithConnect logo (Interlinked Faith concept)
+     - Multi-faith friendly: abstract interlinked curves, no religious symbols
+     - Minimal, premium, scalable (SVG)
+     - Palette: primary #6C63FF
+-->
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Soft, subtle depth without flashy gradients -->
+    <linearGradient id="fcStroke" x1="240" y1="220" x2="784" y2="804" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6C63FF"/>
+      <stop offset="1" stop-color="#5A52E0"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#1F2937" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Optional background kept transparent; splash background handled in Flutter -->
+
+  <!-- Two interlinked strokes forming a subtle “F” and “C” relationship.
+       Geometry is symmetric and works at small sizes. -->
+  <g filter="url(#softShadow)" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Left curve (suggests F / path) -->
+    <path
+      d="M 392 256
+         C 294 322 256 428 256 512
+         C 256 650 366 768 512 768
+         C 582 768 648 742 704 694"
+      stroke="url(#fcStroke)"
+      stroke-width="88"/>
+
+    <!-- Right curve (suggests C / connection) -->
+    <path
+      d="M 632 256
+         C 730 322 768 428 768 512
+         C 768 650 658 768 512 768
+         C 442 768 376 742 320 694"
+      stroke="url(#fcStroke)"
+      stroke-width="88"/>
+
+    <!-- Small connector (subtle interlink) -->
+    <path
+      d="M 392 512
+         C 432 470 472 448 512 448
+         C 552 448 592 470 632 512"
+      stroke="url(#fcStroke)"
+      stroke-width="72"/>
+  </g>
+</svg>
