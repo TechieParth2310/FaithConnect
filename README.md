@@ -6,6 +6,14 @@ A spiritual social networking app built with Flutter and Firebase, connecting de
 ![Firebase](https://img.shields.io/badge/Firebase-Backend-orange?logo=firebase)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
+## 📥 Download APK
+
+**Download the latest APK for Android:**
+
+[![Download APK](https://img.shields.io/badge/Download-FaithConnect%20APK-green?style=for-the-badge)](https://drive.google.com/file/d/1TemcNzOJEL-egfeMa5Uci4sCetBqO48-/view?usp=drive_link)
+
+[Direct Download Link](https://drive.google.com/file/d/1TemcNzOJEL-egfeMa5Uci4sCetBqO48-/view?usp=drive_link)
+
 ## 🎯 Project Overview
 
 FaithConnect is a subscription-free mobile platform that connects **Worshipers** with **Religious Leaders** through:
@@ -117,6 +125,16 @@ lib/
 - Messaging system
 
 ## 🚀 Getting Started
+
+### Quick Start (Download APK)
+
+**For Android users, you can download the pre-built APK directly:**
+
+👉 [Download FaithConnect APK](https://drive.google.com/file/d/1TemcNzOJEL-egfeMa5Uci4sCetBqO48-/view?usp=drive_link)
+
+Simply download and install the APK on your Android device.
+
+### Build from Source
 
 ### Prerequisites
 

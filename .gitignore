@@ -113,10 +113,14 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Documentation files - ignore all .md files except README.md files
+# Documentation files - ignore all .md files except README.md and important docs
 *.md
 !README.md
 !**/README.md
+!QUICK_REVIEW_GUIDE.md
+!TECH_STACK_COMPLETE.md
+!FUNCTIONALITY_FLOW.md
+!TESTING_AND_TESTFLIGHT_GUIDE.md
 
 # Script and text files
 *.sh
